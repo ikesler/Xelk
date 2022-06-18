@@ -10,7 +10,9 @@ public class XelkIndexer
     private readonly string _elasticIndex;
     private readonly int _batchSize;
     private readonly ElasticClient _elasticClient;
+    private readonly Channel<IXEvent> _channel;
     public event Action<int> BatchIndexed = _ => { };
+    private int _totalIndexed;
 
     public XelkIndexer(IEnumerable<string> files, string elasticUrl, string elasticIndex, int batchSize)
     {
@@ -19,35 +21,37 @@ public class XelkIndexer
         _batchSize = batchSize;
 
         _elasticClient = new ElasticClient(new ConnectionSettings(new Uri(elasticUrl)));
+        _channel = Channel.CreateBounded<IXEvent>(new BoundedChannelOptions(_batchSize));
     }
 
     public async Task Index()
     {
-        var totalIndexed = 0;
-        async Task IndexBatch(IEnumerable<IXEvent> batch)
-        {
-            await _elasticClient.BulkAsync(x => x.Index(_elasticIndex).IndexMany(batch));
-            Interlocked.Add(ref totalIndexed, batch.Count());
-            BatchIndexed(totalIndexed);
-        }
+        await Task.WhenAll(ReadEvents(), WriteEvents());
+    }
 
+    private async Task ReadEvents()
+    {
         foreach (var file in _files)
         {
-            var channel = Channel.CreateBounded<IXEvent>(new BoundedChannelOptions(_batchSize));
-            var indexingCompletion = Task.Run(async () =>
-            {
-                while (await channel.Reader.WaitToReadAsync())
-                {
-                    await IndexBatch(channel.Reader.ReadAllAsync().Take(_batchSize).ToEnumerable());
-                }
-            });
-
             var xeStream = new XEFileEventStreamer(file);
-
-            await xeStream.ReadEventStream(() => Task.CompletedTask, async xevent => await channel.Writer.WriteAsync(xevent),
+            await xeStream.ReadEventStream(() => Task.CompletedTask, async xevent => await _channel.Writer.WriteAsync(xevent),
                 CancellationToken.None);
-            channel.Writer.Complete();
-            await indexingCompletion;
         }
+        _channel.Writer.Complete();
+    }
+
+    private async Task WriteEvents()
+    {
+        while (await _channel.Reader.WaitToReadAsync())
+        {
+            await IndexBatch(_channel.Reader.ReadAllAsync().Take(_batchSize).ToEnumerable());
+        }
+    }
+
+    private async Task IndexBatch(IEnumerable<IXEvent> batch)
+    {
+        await _elasticClient.BulkAsync(x => x.Index(_elasticIndex).IndexMany(batch));
+        Interlocked.Add(ref _totalIndexed, batch.Count());
+        BatchIndexed(_totalIndexed);
     }
 }

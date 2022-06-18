@@ -1,11 +1,7 @@
-﻿using System.Threading.Channels;
-using CliFx;
+﻿using CliFx;
 using CliFx.Attributes;
 using CliFx.Exceptions;
 using CliFx.Infrastructure;
-using Microsoft.SqlServer.XEvent.XELite;
-using Nest;
-using System.Threading.Tasks.Dataflow;
 
 namespace Xelk
 {
