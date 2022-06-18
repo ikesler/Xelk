@@ -1,6 +1,7 @@
 # Xelk - Uploading SQLServer Extended Events (*.xel) files to Elasticsearch (ELK stack)
 
 Usage: `dotnet run -s E:\xel\2022_06_14\3 -t http://localhost:9200/ -i xelk_test`
+
 Or from Nuget:
 ```
 dotnet tool install --global Xelk --version 1.0.0
