@@ -11,11 +11,12 @@ USAGE
   Xelk --source <value> --target-url <value> --target-index <value> [options]
 
 OPTIONS
-* -s|--source       Path to a single *.xel file or a directory contining *.xel files.
+* -s|--source       Path to a single *.xel file or a directory containing *.xel files.
 * -t|--target-url   Elasticsearch API endpoint, including port and credentials.
 * -i|--target-index  Name of the target Elasticsearch index.
-  --batch-size      Number of events sent to the Elastic per one Index request Default: "10000".
+  --batch-size      Number of events sent to the Elastic per one Index request. Default: "10000".
   -h|--help         Shows help text.
   --version         Shows version information.
+
 
 ```
