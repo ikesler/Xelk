@@ -49,7 +49,7 @@ public class XelkCommand : ICommand
 
         var indexer = new XelkIndexer(files, TargetUrl, TargetIndex, BatchSize);
         indexer.BatchIndexed += totalIndexed => console.Output.WriteLine($"Total events indexed {totalIndexed}");
-        indexer.ReadingFile += (i, file) => console.Output.WriteLine($"Reading file ({i + 1} of {file.Length}): {file}");
+        indexer.ReadingFile += (i, file) => console.Output.WriteLine($"Reading file ({i + 1} of {files.Length}): {file}");
         await indexer.Index();
     }
 }
