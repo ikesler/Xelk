@@ -6,12 +6,15 @@ namespace Xelk;
 
 public class XelkIndexer
 {
+    public event Action<int> BatchIndexed = _ => { };
+    public event Action<int, string> ReadingFile = (_, _) => { };
+
     private readonly IEnumerable<string> _files;
     private readonly string _elasticIndex;
     private readonly int _batchSize;
     private readonly ElasticClient _elasticClient;
     private readonly Channel<IXEvent> _channel;
-    public event Action<int> BatchIndexed = _ => { };
+
     private int _totalIndexed;
 
     public XelkIndexer(IEnumerable<string> files, string elasticUrl, string elasticIndex, int batchSize)
@@ -31,8 +34,9 @@ public class XelkIndexer
 
     private async Task ReadEvents()
     {
-        foreach (var file in _files)
+        foreach (var (file, i) in _files.Select((f, i) => (f, i)))
         {
+            ReadingFile(i, file);
             var xeStream = new XEFileEventStreamer(file);
             await xeStream.ReadEventStream(() => Task.CompletedTask, async xevent => await _channel.Writer.WriteAsync(xevent),
                 CancellationToken.None);
