@@ -1,4 +1,5 @@
-﻿using CliFx;
+﻿using System.Threading.Channels;
+using CliFx;
 using CliFx.Attributes;
 using CliFx.Exceptions;
 using CliFx.Infrastructure;
@@ -43,37 +44,9 @@ namespace Xelk
                 throw new CommandException("Source path does not exist.");
             }
 
-            var settings = new ConnectionSettings(new Uri(TargetUrl));
-            var client = new ElasticClient(settings);
-
-            var totalIndexed = 0;
-            async Task IndexBatch(IEnumerable<IXEvent> batch)
-            {
-                await client.BulkAsync(x => x.Index(TargetIndex).IndexMany(batch));
-                Interlocked.Add(ref totalIndexed, BatchSize);
-                console.Output.WriteLine($"Total indexed {totalIndexed}");
-            }
-
-            foreach (var file in files)
-            {
-                var buffer = new BatchBlock<IXEvent>(BatchSize);
-                var actionBlock = new ActionBlock<IEnumerable<IXEvent>>(IndexBatch, new ExecutionDataflowBlockOptions { BoundedCapacity = 1 });
-                buffer.LinkTo(actionBlock);
-
-                var xeStream = new XEFileEventStreamer(file);
-
-                await xeStream.ReadEventStream(() => Task.CompletedTask, xevent =>
-                {
-                    buffer.Post(xevent);
-                    return Task.CompletedTask;
-                },
-                CancellationToken.None);
-
-                buffer.Complete();
-                await buffer.Completion;
-                actionBlock.Complete();
-                await actionBlock.Completion;
-            }
+            var indexer = new XelkIndexer(files, TargetUrl, TargetIndex, BatchSize);
+            indexer.BatchIndexed += totalIndexed => console.Output.WriteLine($"Total indexed {totalIndexed}");
+            await indexer.Index();
         }
     }
 }
