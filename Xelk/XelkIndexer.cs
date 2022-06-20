@@ -27,10 +27,7 @@ public class XelkIndexer
         _channel = Channel.CreateBounded<IXEvent>(new BoundedChannelOptions(_batchSize));
     }
 
-    public async Task Index()
-    {
-        await Task.WhenAll(ReadEvents(), WriteEvents());
-    }
+    public Task Index() => Task.WhenAll(ReadEvents(), WriteEvents());
 
     private async Task ReadEvents()
     {
@@ -48,14 +45,14 @@ public class XelkIndexer
     {
         while (await _channel.Reader.WaitToReadAsync())
         {
-            await IndexBatch(_channel.Reader.ReadAllAsync().Take(_batchSize).ToEnumerable());
+            await IndexBatch(await _channel.Reader.ReadAllAsync().Take(_batchSize).ToArrayAsync());
         }
     }
 
-    private async Task IndexBatch(IEnumerable<IXEvent> batch)
+    private async Task IndexBatch(IXEvent[] batch)
     {
         await _elasticClient.BulkAsync(x => x.Index(_elasticIndex).IndexMany(batch));
-        Interlocked.Add(ref _totalIndexed, batch.Count());
+        _totalIndexed += batch.Length;
         BatchIndexed(_totalIndexed);
     }
 }
